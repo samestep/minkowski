@@ -180,7 +180,7 @@ const App = () => {
         return (
           <Input
             rect={rect}
-            setData={async ({ data: { buffer }, width, height }) => {
+            setData={({ data: { buffer }, width, height }) => {
               worker.request({ buffer, width, height });
             }}
           />
