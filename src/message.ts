@@ -1,13 +1,15 @@
-/** request */
-export interface Req {
-  buffer: ArrayBuffer;
+/** image */
+export interface Im {
+  data: ArrayBuffer;
   width: number;
   height: number;
 }
 
-/** response */
-export interface Resp {
-  buffer: ArrayBuffer;
-  width: number;
-  height: number;
+/** request */
+export interface Req {
+  left: Im;
+  right: Im;
 }
+
+/** response */
+export interface Resp extends Im {}

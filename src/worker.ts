@@ -1,15 +1,19 @@
 import { Req, Resp } from "./message";
-import init, { convolve } from "./wasm/minkowski";
+import init, { Image, initialize, minkowski_diff } from "./wasm/minkowski";
 
-const ready = init();
+const ready = init().then(() => {
+  initialize();
+});
 
 const respond = (message: Resp) => postMessage(message);
 
-onmessage = async ({ data: { buffer, width, height } }: MessageEvent<Req>) => {
+onmessage = async ({ data: { left, right } }: MessageEvent<Req>) => {
   await ready;
-  respond({
-    buffer: convolve(new Uint8Array(buffer), width, height).buffer,
-    width,
-    height,
-  });
+  const diff = minkowski_diff(
+    new Image(new Uint8Array(left.data), left.width, left.height),
+    new Image(new Uint8Array(right.data), right.width, right.height)
+  );
+  const { width, height } = diff;
+  const data = Image.get_data(diff);
+  respond({ data, width, height });
 };

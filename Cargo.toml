@@ -8,6 +8,7 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
+console_error_panic_hook = "0.1"
 fft2d = "0.1"
 num-complex = "0.4"
 wasm-bindgen = "0.2"

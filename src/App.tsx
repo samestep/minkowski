@@ -101,23 +101,44 @@ const Canvas = (props: {
 
 const Input = (props: {
   rect: FlexLayout.Rect;
-  setData: (data: ImageData) => void;
+  setData: (left: ImageData, right: ImageData) => void;
 }) => {
-  const [radius, setRadius] = useState(100);
+  const [[x, y], setPos] = useState([100, 100]);
+  const r = 100;
 
   return (
     <Canvas
       rect={props.rect}
       draw={(ctx, w, h) => {
-        ctx.beginPath();
-        ctx.arc(w / 2, h / 2, radius, 0, 2 * Math.PI);
-        ctx.fill();
+        const drawLeft = () => {
+          ctx.fillStyle = "#aaa";
+          ctx.fillRect(w / 2 - x - r, h / 2 - y - r, 2 * r, 2 * r);
+        };
 
-        props.setData(ctx.getImageData(0, 0, w, h));
+        const drawRight = () => {
+          ctx.fillStyle = "#555";
+          ctx.beginPath();
+          ctx.arc(w / 2 + x, h / 2 + y, r, 0, 2 * Math.PI);
+          ctx.fill();
+        };
+
+        ctx.clearRect(0, 0, w, h);
+        drawLeft();
+        const left = ctx.getImageData(0, 0, w, h);
+
+        ctx.clearRect(0, 0, w, h);
+        drawRight();
+        const right = ctx.getImageData(0, 0, w, h);
+
+        ctx.clearRect(0, 0, w, h);
+        drawLeft();
+        drawRight();
+
+        props.setData(left, right);
       }}
-      deps={[radius]}
+      deps={[x, y]}
       point={(w, h, x, y) => {
-        setRadius(Math.sqrt((x - w / 2) ** 2 + (y - h / 2) ** 2));
+        setPos([x - w / 2, y - h / 2]);
       }}
     />
   );
@@ -132,6 +153,16 @@ const Output = (props: { rect: FlexLayout.Rect; data: ImageData }) => (
         (w - props.data.width) / 2,
         (h - props.data.height) / 2
       );
+
+      ctx.beginPath();
+      ctx.moveTo(0, h / 2);
+      ctx.lineTo(w, h / 2);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(w / 2, 0);
+      ctx.lineTo(w / 2, h);
+      ctx.stroke();
     }}
   />
 );
@@ -168,8 +199,8 @@ const App = () => {
   const [data, setData] = useState(new ImageData(1, 1));
 
   useEffect(() => {
-    worker.onmessage = ({ buffer, width, height }: Resp) => {
-      setData(new ImageData(new Uint8ClampedArray(buffer), width, height));
+    worker.onmessage = ({ data, width, height }: Resp) => {
+      setData(new ImageData(new Uint8ClampedArray(data), width, height));
     };
   });
 
@@ -180,8 +211,19 @@ const App = () => {
         return (
           <Input
             rect={rect}
-            setData={({ data: { buffer }, width, height }) => {
-              worker.request({ buffer, width, height });
+            setData={(left, right) => {
+              worker.request({
+                left: {
+                  data: left.data.buffer,
+                  width: left.width,
+                  height: left.height,
+                },
+                right: {
+                  data: right.data.buffer,
+                  width: right.width,
+                  height: right.height,
+                },
+              });
             }}
           />
         );
