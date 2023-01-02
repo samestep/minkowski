@@ -103,7 +103,7 @@ const Input = (props: {
   rect: FlexLayout.Rect;
   setData: (left: ImageData, right: ImageData) => void;
 }) => {
-  const [[x, y], setPos] = useState([100, 100]);
+  const [[x, y], setPos] = useState([50, 50]);
   const r = 100;
 
   return (
@@ -168,7 +168,11 @@ const Output = (props: { rect: FlexLayout.Rect; data: ImageData }) => (
 );
 
 const model = FlexLayout.Model.fromJson({
-  global: {},
+  global: {
+    tabEnableClose: false,
+    tabEnableRename: false,
+    tabSetEnableMaximize: false,
+  },
   borders: [],
   layout: {
     type: "row",
