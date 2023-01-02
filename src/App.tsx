@@ -3,6 +3,41 @@ import "flexlayout-react/style/light.css";
 import { useEffect, useRef, useState } from "react";
 import { useMediaQuery } from "react-responsive";
 import "./App.css";
+import { Req, Resp } from "./message";
+import RawWorker from "./worker?worker";
+
+class WasmWorker {
+  private worker = new RawWorker();
+  private working = false;
+  private queue: Req | undefined = undefined;
+
+  onmessage: ((r: Resp) => void) | undefined = undefined;
+
+  constructor() {
+    this.worker.onmessage = (e: MessageEvent<Resp>) => {
+      if (this.queue === undefined) {
+        this.working = false;
+      } else {
+        this.worker.postMessage(this.queue);
+        this.queue = undefined;
+      }
+      if (this.onmessage !== undefined) {
+        this.onmessage(e.data);
+      }
+    };
+  }
+
+  request(message: Req) {
+    if (this.working) {
+      this.queue = message;
+    } else {
+      this.working = true;
+      this.worker.postMessage(message);
+    }
+  }
+}
+
+const worker = new WasmWorker();
 
 const Canvas = (props: {
   rect: FlexLayout.Rect;
@@ -132,11 +167,24 @@ const App = () => {
 
   const [data, setData] = useState(new ImageData(1, 1));
 
+  useEffect(() => {
+    worker.onmessage = ({ buffer, width, height }: Resp) => {
+      setData(new ImageData(new Uint8ClampedArray(buffer), width, height));
+    };
+  });
+
   const factory = (node: FlexLayout.TabNode) => {
     const rect = node.getRect();
     switch (node.getComponent()) {
       case "input": {
-        return <Input rect={rect} setData={setData} />;
+        return (
+          <Input
+            rect={rect}
+            setData={async ({ data: { buffer }, width, height }) => {
+              worker.request({ buffer, width, height });
+            }}
+          />
+        );
       }
       case "output": {
         return <Output rect={rect} data={data} />;

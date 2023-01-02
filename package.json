@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "wasm": "cargo build --target=wasm32-unknown-unknown --release && wasm-bindgen --target=web --out-dir=src/wasm target/wasm32-unknown-unknown/release/minkowski.wasm",
+    "build": "yarn wasm && tsc && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
