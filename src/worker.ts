@@ -14,6 +14,6 @@ onmessage = async ({ data: { left, right } }: MessageEvent<Req>) => {
     new Image(new Uint8Array(right.data), right.width, right.height)
   );
   const { width, height } = diff;
-  const data = Image.get_data(diff);
+  const data = Image.get_data(diff).buffer;
   respond({ data, width, height });
 };
