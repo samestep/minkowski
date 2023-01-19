@@ -1,3 +1,6 @@
+@import "flexlayout-react/style/dark.css";
+@import "mafs/core.css";
+
 .flexlayout__tab {
   overflow: hidden;
 }

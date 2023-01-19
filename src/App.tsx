@@ -1,171 +1,89 @@
 import * as FlexLayout from "flexlayout-react";
-import "flexlayout-react/style/light.css";
-import { useEffect, useRef, useState } from "react";
+import {
+  CartesianCoordinates,
+  Mafs,
+  Polygon,
+  Theme,
+  useMovablePoint,
+  vec,
+} from "mafs";
+import decomp from "poly-decomp";
+import { useEffect } from "react";
 import { useMediaQuery } from "react-responsive";
 import "./App.css";
-import { Req, Resp } from "./message";
-import RawWorker from "./worker?worker";
 
-class WasmWorker {
-  private worker = new RawWorker();
-  private working = false;
-  private queue: Req | undefined = undefined;
+const cross = ([a, b]: vec.Vector2, [c, d]: vec.Vector2): number =>
+  a * d - b * c;
 
-  onmessage: ((r: Resp) => void) | undefined = undefined;
+// https://cp-algorithms.com/geometry/minkowski.html
 
-  constructor() {
-    this.worker.onmessage = (e: MessageEvent<Resp>) => {
-      if (this.queue === undefined) {
-        this.working = false;
-      } else {
-        this.worker.postMessage(this.queue);
-        this.queue = undefined;
-      }
-      if (this.onmessage !== undefined) {
-        this.onmessage(e.data);
-      }
-    };
-  }
-
-  request(message: Req) {
-    if (this.working) {
-      this.queue = message;
-    } else {
-      this.working = true;
-      this.worker.postMessage(message);
+const reorder = (p: decomp.Polygon): void => {
+  let i = 0;
+  for (let j = 1; j < p.length; j++) {
+    if (p[j][1] < p[i][1] || (p[j][1] === p[i][1] && p[j][0] < p[i][0])) {
+      i = j;
     }
   }
+  p.push(...p.splice(0, i));
+};
+
+const minkowski = (a: decomp.Polygon, b: decomp.Polygon): decomp.Polygon => {
+  const p = [...a];
+  const q = [...b];
+  decomp.makeCCW(p);
+  decomp.makeCCW(q);
+  // the first vertex must be the lowest
+  reorder(p);
+  reorder(q);
+  // we must ensure cyclic indexing
+  p.push(p[0], p[1]);
+  q.push(q[0], q[1]);
+  // main part
+  const r: decomp.Polygon = [];
+  let i = 0,
+    j = 0;
+  while (i < p.length - 2 || j < q.length - 2) {
+    r.push(vec.add(p[i], q[j]));
+    const z = cross(vec.sub(p[i + 1], p[i]), vec.sub(q[j + 1], q[j]));
+    if (z >= 0) ++i;
+    if (z <= 0) ++j;
+  }
+  return r;
+};
+
+interface Decomp {
+  simple: boolean;
+  polygons: decomp.Polygon[];
 }
 
-const worker = new WasmWorker();
+interface DecompProps extends Decomp {
+  color: string;
+}
 
-const Canvas = (props: {
-  rect: FlexLayout.Rect;
-  draw: (ctx: CanvasRenderingContext2D, w: number, h: number) => void;
-  deps?: any[];
-  point?: (w: number, h: number, x: number, y: number) => void;
-}) => {
-  const ratio = window.devicePixelRatio;
-  const { x, y, width, height } = props.rect;
-  const w = width * ratio;
-  const h = height * ratio;
-
-  const ref = useRef<HTMLCanvasElement>(null);
-
-  useEffect(
-    () => {
-      const canvas = ref.current;
-      if (canvas === null) {
-        throw Error("canvas is null");
-      }
-      const ctx = canvas.getContext("2d", { willReadFrequently: true });
-      if (ctx === null) {
-        throw Error("context is null");
-      }
-
-      canvas.width = w;
-      canvas.height = h;
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
-
-      props.draw(ctx, w, h);
-    },
-    props.deps === undefined ? undefined : [ratio, width, height, ...props.deps]
-  );
-
-  const point = ({
-    clientX,
-    clientY,
-  }: {
-    clientX: number;
-    clientY: number;
-  }) => {
-    if (props.point !== undefined) {
-      props.point(w, h, (clientX - x) * ratio, (clientY - y) * ratio);
-    }
-  };
-
+const Polygons = (props: DecompProps) => {
   return (
-    <canvas
-      ref={ref}
-      style={{ touchAction: "none" }}
-      onMouseDown={point}
-      onMouseMove={(e) => {
-        if ((e.buttons & 1) != 0) point(e);
-      }}
-      onTouchStart={(e) => point(e.touches[0])}
-      onTouchMove={(e) => point(e.touches[0])}
-    />
+    <>
+      {props.polygons.map((polygon, i) => (
+        <Polygon
+          key={i}
+          points={polygon}
+          color={props.simple ? props.color : Theme.red}
+        />
+      ))}
+    </>
   );
 };
 
-const Input = (props: {
-  rect: FlexLayout.Rect;
-  setData: (left: ImageData, right: ImageData) => void;
-}) => {
-  const [[x, y], setPos] = useState([50, 50]);
-  const r = 100;
-
-  return (
-    <Canvas
-      rect={props.rect}
-      draw={(ctx, w, h) => {
-        const drawLeft = () => {
-          ctx.fillStyle = "#aaa";
-          ctx.fillRect(w / 2 - x - r, h / 2 - y - r, 2 * r, 2 * r);
-        };
-
-        const drawRight = () => {
-          ctx.fillStyle = "#555";
-          ctx.beginPath();
-          ctx.arc(w / 2 + x, h / 2 + y, r, 0, 2 * Math.PI);
-          ctx.fill();
-        };
-
-        ctx.clearRect(0, 0, w, h);
-        drawLeft();
-        const left = ctx.getImageData(0, 0, w, h);
-
-        ctx.clearRect(0, 0, w, h);
-        drawRight();
-        const right = ctx.getImageData(0, 0, w, h);
-
-        ctx.clearRect(0, 0, w, h);
-        drawLeft();
-        drawRight();
-
-        props.setData(left, right);
-      }}
-      deps={[x, y]}
-      point={(w, h, x, y) => {
-        setPos([x - w / 2, y - h / 2]);
-      }}
-    />
-  );
+const decompose = (points: decomp.Polygon): Decomp => {
+  const simple = decomp.isSimple(points);
+  let polygons = [points];
+  if (simple) {
+    const polygon = [...points];
+    decomp.makeCCW(polygon);
+    polygons = decomp.quickDecomp(polygon);
+  }
+  return { simple, polygons };
 };
-
-const Output = (props: { rect: FlexLayout.Rect; data: ImageData }) => (
-  <Canvas
-    rect={props.rect}
-    draw={(ctx, w, h) => {
-      ctx.putImageData(
-        props.data,
-        (w - props.data.width) / 2,
-        (h - props.data.height) / 2
-      );
-
-      ctx.beginPath();
-      ctx.moveTo(0, h / 2);
-      ctx.lineTo(w, h / 2);
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.moveTo(w / 2, 0);
-      ctx.lineTo(w / 2, h);
-      ctx.stroke();
-    }}
-  />
-);
 
 const model = FlexLayout.Model.fromJson({
   global: {
@@ -200,40 +118,67 @@ const App = () => {
     );
   }, [isPortrait]);
 
-  const [data, setData] = useState(new ImageData(1, 1));
+  const leftColor = { color: Theme.green };
+  const rightColor = { color: Theme.blue };
 
-  useEffect(() => {
-    worker.onmessage = ({ data, width, height }: Resp) => {
-      setData(new ImageData(new Uint8ClampedArray(data), width, height));
-    };
-  });
+  const a = useMovablePoint([0, 1], leftColor);
+  const b = useMovablePoint([-1, 2], leftColor);
+  const c = useMovablePoint([-2, 1], leftColor);
+  const d = useMovablePoint([-1, 0], leftColor);
+
+  const e = useMovablePoint([1, 0], rightColor);
+  const f = useMovablePoint([0, 0], rightColor);
+  const g = useMovablePoint([0, -1], rightColor);
+  const h = useMovablePoint([1, -1], rightColor);
+
+  const left = decompose([a.point, b.point, c.point, d.point]);
+  const right = decompose([e.point, f.point, g.point, h.point]);
 
   const factory = (node: FlexLayout.TabNode) => {
-    const rect = node.getRect();
+    const { width, height } = node.getRect();
     switch (node.getComponent()) {
       case "input": {
         return (
-          <Input
-            rect={rect}
-            setData={(left, right) => {
-              worker.request({
-                left: {
-                  data: left.data.buffer,
-                  width: left.width,
-                  height: left.height,
-                },
-                right: {
-                  data: right.data.buffer,
-                  width: right.width,
-                  height: right.height,
-                },
-              });
-            }}
-          />
+          <Mafs width={width} height={height}>
+            <CartesianCoordinates />
+
+            <Polygons {...left} {...leftColor} />
+            <Polygons {...right} {...rightColor} />
+
+            {a.element}
+            {b.element}
+            {c.element}
+            {d.element}
+
+            {e.element}
+            {f.element}
+            {g.element}
+            {h.element}
+          </Mafs>
         );
       }
       case "output": {
-        return <Output rect={rect} data={data} />;
+        return (
+          <Mafs width={width} height={height}>
+            <CartesianCoordinates />
+            {left.simple && right.simple ? (
+              <Polygons
+                simple={true}
+                polygons={left.polygons.flatMap((a) =>
+                  right.polygons.map((b) =>
+                    minkowski(
+                      a,
+                      b.map(([x, y]) => [-x, -y])
+                    )
+                  )
+                )}
+                color={Theme.foreground}
+              />
+            ) : (
+              []
+            )}
+          </Mafs>
+        );
       }
     }
   };
