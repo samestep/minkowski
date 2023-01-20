@@ -56,6 +56,17 @@ interface Decomp {
   polygons: decomp.Polygon[];
 }
 
+const decompose = (points: decomp.Polygon): Decomp => {
+  const simple = decomp.isSimple(points);
+  let polygons = [points];
+  if (simple) {
+    const polygon = [...points];
+    decomp.makeCCW(polygon);
+    polygons = decomp.quickDecomp(polygon);
+  }
+  return { simple, polygons };
+};
+
 interface DecompProps extends Decomp {
   color: string;
 }
@@ -72,17 +83,6 @@ const Polygons = (props: DecompProps) => {
       ))}
     </>
   );
-};
-
-const decompose = (points: decomp.Polygon): Decomp => {
-  const simple = decomp.isSimple(points);
-  let polygons = [points];
-  if (simple) {
-    const polygon = [...points];
-    decomp.makeCCW(polygon);
-    polygons = decomp.quickDecomp(polygon);
-  }
-  return { simple, polygons };
 };
 
 const model = FlexLayout.Model.fromJson({
@@ -161,22 +161,20 @@ const App = () => {
         return (
           <Mafs width={width} height={height}>
             <CartesianCoordinates />
-            {left.simple && right.simple ? (
-              <Polygons
-                simple={true}
-                polygons={left.polygons.flatMap((a) =>
-                  right.polygons.map((b) =>
-                    minkowski(
-                      a,
-                      b.map(([x, y]) => [-x, -y])
+            {left.simple && right.simple
+              ? left.polygons
+                  .flatMap((a) =>
+                    right.polygons.map((b) =>
+                      minkowski(
+                        a,
+                        b.map(([x, y]) => [-x, -y])
+                      )
                     )
                   )
-                )}
-                color={Theme.foreground}
-              />
-            ) : (
-              []
-            )}
+                  .map((points, i) => (
+                    <Polygon key={i} points={points} color={Theme.foreground} />
+                  ))
+              : []}
           </Mafs>
         );
       }
