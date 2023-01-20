@@ -10,7 +10,7 @@ import {
   Vector,
 } from "mafs";
 import decomp from "poly-decomp";
-import { useEffect } from "react";
+import React, { useEffect } from "react";
 import { useMediaQuery } from "react-responsive";
 import "./App.css";
 
@@ -87,6 +87,25 @@ const minkowski = (a: decomp.Polygon, b: decomp.Polygon): decomp.Polygon => {
   return r;
 };
 
+const interior = (convex: decomp.Polygon, point: vec.Vector2): boolean =>
+  convex.every((a, i) => {
+    const b = convex[(i + 1) % convex.length];
+    const v = vec.sub(b, a);
+    const u = vec.sub(point, a);
+    return cross(v, u) > 0;
+  });
+
+const noInterior = (
+  polygons: decomp.Polygon[],
+  point: vec.Vector2,
+  start: number,
+  end: number
+): boolean => {
+  for (let i = start; i < end; ++i)
+    if (interior(polygons[i], point)) return false;
+  return true;
+};
+
 const Minkowski = (props: {
   left: decomp.Polygon[];
   right: decomp.Polygon[];
@@ -99,31 +118,60 @@ const Minkowski = (props: {
       )
     )
   );
-  const closest = polygons
-    .flatMap((p) =>
-      p.map((a, i) => {
-        const b = p[(i + 1) % p.length];
-        // https://math.stackexchange.com/a/2193733
-        const v = vec.sub(b, a);
-        const u = a;
-        const t = -vec.dot(v, u) / vec.dot(v, v);
-        if (t <= 0) {
-          return a;
-        } else if (t < 1) {
-          return vec.add(a, vec.scale(v, t));
-        } else {
-          return b;
+  const candidates: vec.Vector2[] = [];
+  for (let i0 = 0; i0 < polygons.length; ++i0) {
+    const p0 = polygons[i0];
+    for (let j0 = 0; j0 < p0.length; ++j0) {
+      const a0 = p0[j0];
+      const b0 = p0[(j0 + 1) % p0.length];
+      const v0 = vec.sub(b0, a0);
+      if (
+        noInterior(polygons, a0, 0, i0) &&
+        noInterior(polygons, a0, i0 + 1, polygons.length)
+      )
+        candidates.push(a0);
+      const t = -vec.dot(v0, a0) / vec.dot(v0, v0);
+      if (0 < t && t < 1) {
+        const c = vec.add(a0, vec.scale(v0, t));
+        if (
+          noInterior(polygons, c, 0, i0) &&
+          noInterior(polygons, c, i0 + 1, polygons.length)
+        )
+          candidates.push(c);
+      }
+      for (let i1 = i0 + 1; i1 < polygons.length; ++i1) {
+        const p1 = polygons[i1];
+        for (let j1 = 0; j1 < p1.length; ++j1) {
+          const a1 = p1[j1];
+          const b1 = p1[(j1 + 1) % p1.length];
+          const v1 = vec.sub(b1, a1);
+          const w = vec.sub(a1, a0);
+          const denom = cross(v0, v1);
+          const t0 = cross(w, v1) / denom;
+          const t1 = cross(w, v0) / denom;
+          if (0 < t0 && t0 < 1 && 0 < t1 && t1 < 1) {
+            const c = vec.add(a0, vec.scale(v0, t0));
+            if (
+              noInterior(polygons, c, 0, i0) &&
+              noInterior(polygons, c, i0 + 1, i1) &&
+              noInterior(polygons, c, i1 + 1, polygons.length)
+            )
+              candidates.push(c);
+          }
         }
-      })
-    )
-    .reduce((v, w) => (vec.mag(w) < vec.mag(v) ? w : v));
+      }
+    }
+  }
+  const closest = candidates.reduce((v, w) =>
+    vec.mag(w) < vec.mag(v) ? w : v
+  );
   return (
     <>
       {polygons.map((points, i) => (
         <Polygon key={i} points={points} />
       ))}
-      {polygons.flat().map(([x, y]) => (
-        <Point x={x} y={y} />
+      {candidates.map(([x, y], i) => (
+        <Point key={i} x={x} y={y} />
       ))}
       <Vector tip={closest} />
     </>
@@ -193,8 +241,12 @@ const App = () => {
             <CartesianCoordinates />
             <Polygons {...left} {...leftColor} />
             <Polygons {...right} {...rightColor} />
-            {leftPoints.map((mp) => mp.element)}
-            {rightPoints.map((mp) => mp.element)}
+            {leftPoints.map((mp, i) => (
+              <React.Fragment key={i}>{mp.element}</React.Fragment>
+            ))}
+            {rightPoints.map((mp, i) => (
+              <React.Fragment key={i}>{mp.element}</React.Fragment>
+            ))}
           </Mafs>
         );
       }
