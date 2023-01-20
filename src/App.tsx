@@ -2,6 +2,7 @@ import * as FlexLayout from "flexlayout-react";
 import {
   CartesianCoordinates,
   Mafs,
+  Point,
   Polygon,
   Theme,
   useMovablePoint,
@@ -120,6 +121,9 @@ const Minkowski = (props: {
     <>
       {polygons.map((points, i) => (
         <Polygon key={i} points={points} color={Theme.foreground} />
+      ))}
+      {polygons.flat().map(([x, y]) => (
+        <Point x={x} y={y} />
       ))}
       <Vector tip={closest} />
     </>
