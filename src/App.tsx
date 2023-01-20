@@ -2,11 +2,11 @@ import * as FlexLayout from "flexlayout-react";
 import {
   CartesianCoordinates,
   Mafs,
+  Point,
   Polygon,
   Theme,
   useMovablePoint,
   vec,
-  Vector,
 } from "mafs";
 import decomp from "poly-decomp";
 import { useEffect } from "react";
@@ -98,31 +98,30 @@ const Minkowski = (props: {
       )
     )
   );
+  const [x, y] = polygons
+    .flatMap((p) =>
+      p.map((a, i) => {
+        const b = p[(i + 1) % p.length];
+        // https://math.stackexchange.com/a/2193733
+        const v = vec.sub(b, a);
+        const u = a;
+        const t = -vec.dot(v, u) / vec.dot(v, v);
+        if (t <= 0) {
+          return a;
+        } else if (t < 1) {
+          return vec.add(a, vec.scale(v, t));
+        } else {
+          return b;
+        }
+      })
+    )
+    .reduce((v, w) => (vec.mag(w) < vec.mag(v) ? w : v));
   return (
     <>
       {polygons.map((points, i) => (
         <Polygon key={i} points={points} color={Theme.foreground} />
       ))}
-      <Vector
-        tip={polygons
-          .flatMap((p) =>
-            p.map((a, i) => {
-              const b = p[(i + 1) % p.length];
-              // https://math.stackexchange.com/a/2193733
-              const v = vec.sub(b, a);
-              const u = a;
-              const t = -vec.dot(v, u) / vec.dot(v, v);
-              if (t <= 0) {
-                return a;
-              } else if (t < 1) {
-                return vec.add(a, vec.scale(v, t));
-              } else {
-                return b;
-              }
-            })
-          )
-          .reduce((v, w) => (vec.mag(w) < vec.mag(v) ? w : v))}
-      />
+      <Point x={x} y={y} />
     </>
   );
 };
