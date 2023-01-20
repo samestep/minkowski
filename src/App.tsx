@@ -120,7 +120,7 @@ const Minkowski = (props: {
   return (
     <>
       {polygons.map((points, i) => (
-        <Polygon key={i} points={points} color={Theme.foreground} />
+        <Polygon key={i} points={points} />
       ))}
       {polygons.flat().map(([x, y]) => (
         <Point x={x} y={y} />
