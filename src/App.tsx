@@ -2,7 +2,6 @@ import * as FlexLayout from "flexlayout-react";
 import {
   CartesianCoordinates,
   Mafs,
-  Point,
   Polygon,
   Theme,
   useMovablePoint,
@@ -170,9 +169,6 @@ const Minkowski = (props: {
       {polygons.map((points, i) => (
         <Polygon key={i} points={points} />
       ))}
-      {candidates.map(([x, y], i) => (
-        <Point key={i} x={x} y={y} />
-      ))}
       <Vector tip={closest} />
     </>
   );
@@ -215,18 +211,17 @@ const App = () => {
   const rightColor = { color: Theme.blue };
 
   const leftPoints = [
-    useMovablePoint([3, -2], leftColor),
-    useMovablePoint([0, 2], leftColor),
-    useMovablePoint([-0.5, -1.5], leftColor),
-    useMovablePoint([0.5, 0.5], leftColor),
-    useMovablePoint([1.5, -1], leftColor),
-    useMovablePoint([0, -1.5], leftColor),
+    useMovablePoint([0, 0], leftColor),
+    useMovablePoint([0, 1], leftColor),
+    useMovablePoint([-1, 1], leftColor),
+    useMovablePoint([-1, 0], leftColor),
   ];
 
   const rightPoints = [
+    useMovablePoint([2, -1], rightColor),
     useMovablePoint([1, 0], rightColor),
-    useMovablePoint([0, 1], rightColor),
-    useMovablePoint([0, 0], rightColor),
+    useMovablePoint([0, -1], rightColor),
+    useMovablePoint([1, -2], rightColor),
   ];
 
   const left = decompose(leftPoints.map((mp) => mp.point));
