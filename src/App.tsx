@@ -6,11 +6,46 @@ import {
   Theme,
   useMovablePoint,
   vec,
+  Vector,
 } from "mafs";
 import decomp from "poly-decomp";
 import { useEffect } from "react";
 import { useMediaQuery } from "react-responsive";
 import "./App.css";
+
+interface Decomp {
+  simple: boolean;
+  polygons: decomp.Polygon[];
+}
+
+const decompose = (points: decomp.Polygon): Decomp => {
+  const simple = decomp.isSimple(points);
+  let polygons = [points];
+  if (simple) {
+    const polygon = [...points];
+    decomp.makeCCW(polygon);
+    polygons = decomp.quickDecomp(polygon);
+  }
+  return { simple, polygons };
+};
+
+interface DecompProps extends Decomp {
+  color: string;
+}
+
+const Polygons = (props: DecompProps) => {
+  return (
+    <>
+      {props.polygons.map((polygon, i) => (
+        <Polygon
+          key={i}
+          points={polygon}
+          color={props.simple ? props.color : Theme.red}
+        />
+      ))}
+    </>
+  );
+};
 
 const cross = ([a, b]: vec.Vector2, [c, d]: vec.Vector2): number =>
   a * d - b * c;
@@ -51,36 +86,43 @@ const minkowski = (a: decomp.Polygon, b: decomp.Polygon): decomp.Polygon => {
   return r;
 };
 
-interface Decomp {
-  simple: boolean;
-  polygons: decomp.Polygon[];
-}
-
-const decompose = (points: decomp.Polygon): Decomp => {
-  const simple = decomp.isSimple(points);
-  let polygons = [points];
-  if (simple) {
-    const polygon = [...points];
-    decomp.makeCCW(polygon);
-    polygons = decomp.quickDecomp(polygon);
-  }
-  return { simple, polygons };
-};
-
-interface DecompProps extends Decomp {
-  color: string;
-}
-
-const Polygons = (props: DecompProps) => {
+const Minkowski = (props: {
+  left: decomp.Polygon[];
+  right: decomp.Polygon[];
+}) => {
+  const polygons = props.left.flatMap((a) =>
+    props.right.map((b) =>
+      minkowski(
+        a,
+        b.map(([x, y]) => [-x, -y])
+      )
+    )
+  );
   return (
     <>
-      {props.polygons.map((polygon, i) => (
-        <Polygon
-          key={i}
-          points={polygon}
-          color={props.simple ? props.color : Theme.red}
-        />
+      {polygons.map((points, i) => (
+        <Polygon key={i} points={points} color={Theme.foreground} />
       ))}
+      <Vector
+        tip={polygons
+          .flatMap((p) =>
+            p.map((a, i) => {
+              const b = p[(i + 1) % p.length];
+              // https://math.stackexchange.com/a/2193733
+              const v = vec.sub(b, a);
+              const u = a;
+              const t = -vec.dot(v, u) / vec.dot(v, v);
+              if (t <= 0) {
+                return a;
+              } else if (t < 1) {
+                return vec.add(a, vec.scale(v, t));
+              } else {
+                return b;
+              }
+            })
+          )
+          .reduce((v, w) => (vec.mag(w) < vec.mag(v) ? w : v))}
+      />
     </>
   );
 };
@@ -161,20 +203,11 @@ const App = () => {
         return (
           <Mafs width={width} height={height}>
             <CartesianCoordinates />
-            {left.simple && right.simple
-              ? left.polygons
-                  .flatMap((a) =>
-                    right.polygons.map((b) =>
-                      minkowski(
-                        a,
-                        b.map(([x, y]) => [-x, -y])
-                      )
-                    )
-                  )
-                  .map((points, i) => (
-                    <Polygon key={i} points={points} color={Theme.foreground} />
-                  ))
-              : []}
+            {left.simple && right.simple ? (
+              <Minkowski left={left.polygons} right={right.polygons} />
+            ) : (
+              <></>
+            )}
           </Mafs>
         );
       }
