@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "flexlayout-react": "^0.7",
-    "mafs": "^0.13",
+    "mafs": "^0.13.1",
     "poly-decomp": "^0.3",
     "react": "^18",
     "react-dom": "^18",

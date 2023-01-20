@@ -2,11 +2,11 @@ import * as FlexLayout from "flexlayout-react";
 import {
   CartesianCoordinates,
   Mafs,
-  Point,
   Polygon,
   Theme,
   useMovablePoint,
   vec,
+  Vector,
 } from "mafs";
 import decomp from "poly-decomp";
 import { useEffect } from "react";
@@ -98,7 +98,7 @@ const Minkowski = (props: {
       )
     )
   );
-  const [x, y] = polygons
+  const closest = polygons
     .flatMap((p) =>
       p.map((a, i) => {
         const b = p[(i + 1) % p.length];
@@ -121,7 +121,7 @@ const Minkowski = (props: {
       {polygons.map((points, i) => (
         <Polygon key={i} points={points} color={Theme.foreground} />
       ))}
-      <Point x={x} y={y} />
+      <Vector tip={closest} />
     </>
   );
 };
