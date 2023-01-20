@@ -162,18 +162,23 @@ const App = () => {
   const leftColor = { color: Theme.green };
   const rightColor = { color: Theme.blue };
 
-  const a = useMovablePoint([0, 1], leftColor);
-  const b = useMovablePoint([-1, 2], leftColor);
-  const c = useMovablePoint([-2, 1], leftColor);
-  const d = useMovablePoint([-1, 0], leftColor);
+  const leftPoints = [
+    useMovablePoint([3, -2], leftColor),
+    useMovablePoint([0, 2], leftColor),
+    useMovablePoint([-0.5, -1.5], leftColor),
+    useMovablePoint([0.5, 0.5], leftColor),
+    useMovablePoint([1.5, -1], leftColor),
+    useMovablePoint([0, -1.5], leftColor),
+  ];
 
-  const e = useMovablePoint([1, 0], rightColor);
-  const f = useMovablePoint([0, 0], rightColor);
-  const g = useMovablePoint([0, -1], rightColor);
-  const h = useMovablePoint([1, -1], rightColor);
+  const rightPoints = [
+    useMovablePoint([1, 0], rightColor),
+    useMovablePoint([0, 1], rightColor),
+    useMovablePoint([0, 0], rightColor),
+  ];
 
-  const left = decompose([a.point, b.point, c.point, d.point]);
-  const right = decompose([e.point, f.point, g.point, h.point]);
+  const left = decompose(leftPoints.map((mp) => mp.point));
+  const right = decompose(rightPoints.map((mp) => mp.point));
 
   const factory = (node: FlexLayout.TabNode) => {
     const { width, height } = node.getRect();
@@ -182,19 +187,10 @@ const App = () => {
         return (
           <Mafs width={width} height={height}>
             <CartesianCoordinates />
-
             <Polygons {...left} {...leftColor} />
             <Polygons {...right} {...rightColor} />
-
-            {a.element}
-            {b.element}
-            {c.element}
-            {d.element}
-
-            {e.element}
-            {f.element}
-            {g.element}
-            {h.element}
+            {leftPoints.map((mp) => mp.element)}
+            {rightPoints.map((mp) => mp.element)}
           </Mafs>
         );
       }
