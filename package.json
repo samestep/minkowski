@@ -6,13 +6,13 @@
   "scripts": {
     "dev": "vite",
     "test": "prettier --check . && tsc",
-    "build": "vite build",
+    "wasm": "cargo build --target=wasm32-unknown-unknown --release && wasm-bindgen --target=web --out-dir=src/wasm target/wasm32-unknown-unknown/release/minkowski.wasm",
+    "build": "yarn wasm && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
     "flexlayout-react": "^0.7",
     "mafs": "^0.13.1",
-    "poly-decomp": "^0.3",
     "react": "^18",
     "react-dom": "^18",
     "react-responsive": "9"
@@ -24,6 +24,7 @@
     "prettier": "^2",
     "prettier-plugin-organize-imports": "^3",
     "typescript": "^4",
-    "vite": "^4"
+    "vite": "^4",
+    "vite-plugin-top-level-await": "^1"
   }
 }
