@@ -22,6 +22,10 @@ fn cross((x0, y0): Point, (x1, y1): Point) -> f64 {
     x0 * y1 - x1 * y0
 }
 
+fn pos_cross((x0, y0): Point, (x1, y1): Point) -> bool {
+    x0 * y1 >= x1 * y0
+}
+
 /// compare the clockwise angle from `u` to `v` with the clockwise angle from `u` to `w`
 fn cmp_clockwise_angle(u: Point, v: Point, w: Point) -> Ordering {
     if if cross(u, v) >= 0. {
@@ -33,10 +37,6 @@ fn cmp_clockwise_angle(u: Point, v: Point, w: Point) -> Ordering {
     } else {
         Ordering::Less
     }
-}
-
-fn vector((v, w): Edge) -> Point {
-    sub(w, v)
 }
 
 fn intersection((a0, b0): Edge, (a1, b1): Edge) -> Option<(f64, f64, Point)> {
@@ -53,114 +53,115 @@ fn intersection((a0, b0): Edge, (a1, b1): Edge) -> Option<(f64, f64, Point)> {
     }
 }
 
-fn before(p: &[Point], i: usize) -> Edge {
-    (if i == 0 { p[p.len() - 1] } else { p[i - 1] }, p[i])
+/// sum of one vertex from each polygon
+struct Vert {
+    /// index of vertex from first polygon
+    i: usize,
+    /// index of vertex from second polygon
+    j: usize,
+    /// coordinates
+    z: Point,
 }
 
-fn after(p: &[Point], i: usize) -> Edge {
-    (p[i], p[(i + 1) % p.len()])
+/// convolution of edge from one polygon with vertex from other polygon
+struct Conv {
+    /// start
+    p: Vert,
+    /// end
+    q: Vert,
+    /// delta
+    v: Point,
 }
 
-type Vert = (usize, usize);
+fn convolve(
+    a: &[Point],
+    b: &[Point],
+    edges: &mut Vec<Conv>,
+    make_vert: impl Fn(usize, usize, Point) -> Vert,
+) {
+    let mut i0 = 0;
+    let mut a0 = a[i0];
+    let mut before = sub(a0, a[a.len() - 1]);
 
-/// a sum of an edge from one polygon with a vertex from the other polygon
-#[derive(Clone, Copy)]
-enum Conv {
-    /// edge from first polygon, vertex from second polygon
-    Left {
-        /// index of initial vertex from first polygon
-        i: usize,
-        /// index of vertex from second polygon
-        j: usize,
-    },
-    /// vertex from first polygon, edge from second polygon
-    Right {
-        /// index of vertex from first polygon
-        i: usize,
-        /// index of initial vertex from second polygon
-        j: usize,
-    },
-}
+    let mut walk_b = |i1| {
+        let a1 = a[i1];
+        let after = sub(a1, a0);
 
-impl Conv {
-    fn tail(&self) -> Vert {
-        match self {
-            &Conv::Left { i, j } => (i, j),
-            &Conv::Right { i, j } => (i, j),
+        // filter out reflex vertices
+        if pos_cross(before, after) {
+            let mut j0 = 0;
+            let mut b0 = b[j0];
+            let mut z0 = add(a0, b0);
+
+            let mut check = |j1| {
+                let b1 = b[j1];
+                let z1 = add(a0, b1);
+                let v = sub(b1, b0);
+
+                // compatible
+                if pos_cross(before, v) && pos_cross(v, after) {
+                    edges.push(Conv {
+                        p: make_vert(i0, j0, z0),
+                        q: make_vert(i0, j1, z1),
+                        v,
+                    });
+                }
+
+                j0 = j1;
+                b0 = b1;
+                z0 = z1;
+            };
+
+            for j1 in 1..b.len() {
+                check(j1);
+            }
+            check(0);
         }
-    }
 
-    fn tip(&self, a: &[Point], b: &[Point]) -> Vert {
-        match self {
-            &Conv::Left { i, j } => ((i + 1) % a.len(), j),
-            &Conv::Right { i, j } => (i, (j + 1) % b.len()),
-        }
-    }
+        i0 = i1;
+        a0 = a1;
+        before = after;
+    };
 
-    fn edge(&self, a: &[Point], b: &[Point]) -> Edge {
-        let (i0, j0) = self.tail();
-        let (i1, j1) = self.tip(a, b);
-        (add(a[i0], b[j0]), add(a[i1], b[j1]))
+    for i1 in 1..a.len() {
+        walk_b(i1);
     }
+    walk_b(0);
 }
 
 fn reduced_convolution(a: &[Point], b: &[Point]) -> Vec<Conv> {
     let mut edges = vec![];
-    for i in 0..a.len() {
-        let u = vector(before(&a, i));
-        let w = vector(after(&a, i));
-        // filter out reflex vertices
-        if cross(u, w) >= 0. {
-            for j in 0..b.len() {
-                let v = vector(after(&b, j));
-                // compatible
-                if cross(u, v) >= 0. && cross(v, w) >= 0. {
-                    edges.push(Conv::Right { i, j });
-                }
-            }
-        }
-    }
-    for j in 0..b.len() {
-        let u = vector(before(&b, j));
-        let w = vector(after(&b, j));
-        if cross(u, w) >= 0. {
-            for i in 0..a.len() {
-                let v = vector(after(&a, i));
-                if cross(u, v) >= 0. && cross(v, w) >= 0. {
-                    edges.push(Conv::Left { i, j });
-                }
-            }
-        }
-    }
+    convolve(a, b, &mut edges, |i, j, z| Vert { i, j, z });
+    convolve(b, a, &mut edges, |i, j, z| Vert { i: j, j: i, z });
     edges
 }
 
 /// post-intersection
-enum Pseudovert {
+enum Pseudovert<'a> {
     /// a sum of a vertex from each polygon
-    Init(Vert),
+    Init(&'a Vert),
     /// part of the first edge, starting at the intersection with the second
-    Inter(Conv, Conv, Point),
+    Inter(&'a Conv, &'a Conv, Point),
 }
 
-fn orientable_loops(a: Vec<Point>, b: Vec<Point>, edges: Vec<Conv>) -> Vec<Vec<Point>> {
-    let mut verts: Vec<Pseudovert> = edges.iter().map(|e| Pseudovert::Init(e.tail())).collect();
+fn extract_loops(edges: &[Conv]) -> Vec<Vec<Point>> {
+    let mut verts: Vec<Pseudovert> = edges.iter().map(|e| Pseudovert::Init(&e.p)).collect();
     let mut inters = vec![];
     let mut succ: Vec<Option<usize>> = edges
         .iter()
         .enumerate()
-        .map(|(n0, &e0)| {
-            let k0 = e0.tip(&a, &b);
-            let v0 = vector(e0.edge(&a, &b));
+        .map(|(n0, e0)| {
+            let k0 = (e0.q.i, e0.q.j);
             edges
                 .iter()
                 .enumerate()
-                .filter_map(|(n1, &e1)| {
-                    if k0 == e1.tail() {
-                        return Some((n1, vector(e1.edge(&a, &b))));
+                .filter_map(|(n1, e1)| {
+                    if k0 == (e1.p.i, e1.p.j) {
+                        return Some((n1, e1.v));
                     }
                     if n0 < n1 {
-                        if let Some((t0, t1, v)) = intersection(e0.edge(&a, &b), e1.edge(&a, &b)) {
+                        if let Some((t0, t1, v)) = intersection((e0.p.z, e0.q.z), (e1.p.z, e1.q.z))
+                        {
                             let n2 = verts.len();
                             verts.push(Pseudovert::Inter(e0, e1, v));
                             let n3 = verts.len();
@@ -171,15 +172,14 @@ fn orientable_loops(a: Vec<Point>, b: Vec<Point>, edges: Vec<Conv>) -> Vec<Vec<P
                     }
                     None
                 })
-                .max_by(|&(_, v1), &(_, v2)| cmp_clockwise_angle(v0, v1, v2))
+                .max_by(|&(_, v1), &(_, v2)| cmp_clockwise_angle(e0.v, v1, v2))
                 .map(|(n1, _)| n1)
         })
         .collect();
     inters.sort_by(|x, y| x.partial_cmp(y).unwrap());
     succ.resize(verts.len(), None);
     let mut nint = 0;
-    for (n0, &e0) in edges.iter().enumerate() {
-        let v0 = vector(e0.edge(&a, &b));
+    for (n0, e0) in edges.iter().enumerate() {
         let mut n1 = n0;
         let n2 = succ[n0];
         while nint < inters.len() {
@@ -187,8 +187,7 @@ fn orientable_loops(a: Vec<Point>, b: Vec<Point>, edges: Vec<Conv>) -> Vec<Vec<P
             if n0 != n3 {
                 break;
             }
-            let v1 = vector(edges[n4].edge(&a, &b));
-            succ[n1] = Some(if cross(v0, v1) >= 0. { n5 } else { n6 });
+            succ[n1] = Some(if pos_cross(e0.v, edges[n4].v) { n5 } else { n6 });
             n1 = n5;
             nint += 1;
         }
@@ -214,8 +213,8 @@ fn orientable_loops(a: Vec<Point>, b: Vec<Point>, edges: Vec<Conv>) -> Vec<Vec<P
                 let mut n2 = n1;
                 loop {
                     loop_edges.push(match verts[n2] {
-                        Pseudovert::Init((i, j)) => add(a[i], b[j]),
-                        Pseudovert::Inter(_, _, v) => v,
+                        Pseudovert::Init(&Vert { z, .. }) => z,
+                        Pseudovert::Inter(_, _, z) => z,
                     });
                     n2 = succ[n2].unwrap();
                     if n2 == n1 {
@@ -245,7 +244,9 @@ pub fn minkowski(xs0: Vec<f64>, ys0: Vec<f64>, xs1: Vec<f64>, ys1: Vec<f64>) -> 
     let a: Vec<Point> = xs0.into_iter().zip(ys0.into_iter()).collect();
     let b: Vec<Point> = xs1.into_iter().zip(ys1.into_iter()).collect();
     let convolved = reduced_convolution(&a, &b);
-    let edges = convolved.iter().map(|e| e.edge(&a, &b)).collect();
-    let polygons = orientable_loops(a, b, convolved);
-    serde_wasm_bindgen::to_value(&Minkowski { edges, polygons }).unwrap()
+    serde_wasm_bindgen::to_value(&Minkowski {
+        edges: convolved.iter().map(|e| (e.p.z, e.q.z)).collect(),
+        polygons: extract_loops(&convolved),
+    })
+    .unwrap()
 }
