@@ -1,5 +1,78 @@
 use std::cmp::Ordering;
 
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+enum Region {
+    NegativeY,
+
+    /// with zero y
+    NonnegativeX,
+
+    PositiveY,
+
+    /// with zero y
+    NegativeX,
+}
+
+/// comparison should agree with `atan2`, except that all non-finite values are considered equal to
+/// each other and less than everything else
+#[derive(Clone)]
+struct Angle(f64, f64);
+
+impl Angle {
+    /// returns `None` unless `x` and `y` are both finite
+    fn region(&self) -> Option<Region> {
+        use Ordering::*;
+        use Region::*;
+        let &Angle(x, y) = self;
+        if x.is_finite() && y.is_finite() {
+            // all finite values can be compared
+            Some(match y.partial_cmp(&0.).unwrap() {
+                Less => NegativeY,
+                Equal => {
+                    if x < 0. {
+                        NegativeX
+                    } else {
+                        NonnegativeX
+                    }
+                }
+                Greater => PositiveY,
+            })
+        } else {
+            None
+        }
+    }
+}
+
+impl Ord for Angle {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let region = self.region();
+        region.cmp(&other.region()).then_with(|| {
+            if region == None {
+                Ordering::Equal
+            } else {
+                let &Angle(x0, y0) = self;
+                let &Angle(x1, y1) = other;
+                // guaranteed not to panic, because no multiplication of finite values can give NaN
+                (y0 * x1).partial_cmp(&(x0 * y1)).unwrap()
+            }
+        })
+    }
+}
+
+impl PartialOrd for Angle {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for Angle {
+    fn eq(&self, other: &Self) -> bool {
+        self.partial_cmp(other) == Some(Ordering::Equal)
+    }
+}
+
+impl Eq for Angle {}
+
 pub type Point = (f64, f64);
 pub type Edge = (Point, Point);
 
@@ -21,19 +94,6 @@ fn cross((x0, y0): Point, (x1, y1): Point) -> f64 {
 
 fn pos_cross((x0, y0): Point, (x1, y1): Point) -> bool {
     x0 * y1 >= x1 * y0
-}
-
-/// compare the clockwise angle from `u` to `v` with the clockwise angle from `u` to `w`
-fn cmp_clockwise_angle(u: Point, v: Point, w: Point) -> Ordering {
-    if if cross(u, v) >= 0. {
-        cross(u, w) <= 0. || cross(w, v) >= 0.
-    } else {
-        cross(u, w) <= 0. && cross(w, v) >= 0.
-    } {
-        Ordering::Greater
-    } else {
-        Ordering::Less
-    }
 }
 
 fn intersection((a0, b0): Edge, (a1, b1): Edge) -> Option<(f64, f64, Point)> {
@@ -134,93 +194,146 @@ pub fn reduced_convolution(a: &[Point], b: &[Point]) -> Vec<Conv> {
 }
 
 /// post-intersection
-enum Pseudovert<'a> {
-    /// a sum of a vertex from each polygon
-    Init(&'a Vert),
-    /// part of the first edge, starting at the intersection with the second
-    Inter(&'a Conv, &'a Conv, Point),
+#[derive(Clone, Eq, Ord, PartialEq, PartialOrd)]
+enum Pseudovert {
+    /// sum of one vertex from each polygon
+    Given { i: usize, j: usize },
+    /// intersection of two indexed edges
+    Steiner { m: usize, n: usize },
 }
 
 pub fn extract_loops(edges: &[Conv]) -> Vec<Vec<Point>> {
-    let mut verts: Vec<Pseudovert> = edges.iter().map(|e| Pseudovert::Init(&e.p)).collect();
+    let mut tips: Vec<Point> = edges.iter().map(|e| e.q.z).collect();
     let mut inters = vec![];
-    let mut succ: Vec<Option<usize>> = edges
-        .iter()
-        .enumerate()
-        .map(|(n0, e0)| {
-            let k0 = (e0.q.i, e0.q.j);
-            edges
-                .iter()
-                .enumerate()
-                .filter_map(|(n1, e1)| {
-                    if k0 == (e1.p.i, e1.p.j) {
-                        return Some((n1, e1.v));
-                    }
-                    if n0 < n1 {
-                        if let Some((t0, t1, v)) = intersection((e0.p.z, e0.q.z), (e1.p.z, e1.q.z))
-                        {
-                            let n2 = verts.len();
-                            verts.push(Pseudovert::Inter(e0, e1, v));
-                            let n3 = verts.len();
-                            verts.push(Pseudovert::Inter(e1, e0, v));
-                            inters.push((n0, t0, n1, n2, n3));
-                            inters.push((n1, t1, n0, n3, n2));
-                        }
-                    }
-                    None
-                })
-                .max_by(|&(_, v1), &(_, v2)| cmp_clockwise_angle(e0.v, v1, v2))
-                .map(|(n1, _)| n1)
-        })
-        .collect();
-    inters.sort_by(|x, y| x.partial_cmp(y).unwrap());
-    succ.resize(verts.len(), None);
-    let mut nint = 0;
     for (n0, e0) in edges.iter().enumerate() {
-        let mut n1 = n0;
-        let n2 = succ[n0];
-        while nint < inters.len() {
-            let (n3, _, n4, n5, n6) = inters[nint];
-            if n0 != n3 {
+        let Vert { i: i00, j: j00, .. } = e0.p;
+        let Vert { i: i01, j: j01, .. } = e0.q;
+
+        for n1 in n0 + 1..edges.len() {
+            let e1 = &edges[n1];
+            let Vert { i: i10, j: j10, .. } = e1.p;
+            let Vert { i: i11, j: j11, .. } = e1.q;
+
+            // exclude edges that share a vertex, and edges that came from the same polygon and were
+            // translated by the same vertex from the other polygon, because we assume that the
+            // input polygons were both simple
+            if !((i00 == i10 && (j00 == j10 || (i00, i10) == (i01, i11)))
+                || (i01, j01) == (i10, j10)
+                || (j00 == j11 && (i00 == i11 || (j00, j10) == (j01, j11)))
+                || (i01, j01) == (i11, j11))
+            {
+                if let Some((t0, t1, z)) = intersection((e0.p.z, e0.q.z), (e1.p.z, e1.q.z)) {
+                    inters.push((n0, t0, n0, n1, tips.len()));
+                    tips.push(z);
+                    inters.push((n1, t1, n0, n1, tips.len()));
+                    tips.push(z);
+                }
+            }
+        }
+    }
+
+    // the only floating point numbers we put into the vector are the intersection parameters, which
+    // we guarantee to be between 0 and 1, so this will never panic
+    inters.sort_unstable_by(|foo, bar| foo.partial_cmp(bar).unwrap());
+
+    let mut nodes = Vec::with_capacity(tips.len() * 2);
+    let mut n_inter = 0;
+    for (n0, e0) in edges.iter().enumerate() {
+        let (x, y) = e0.v;
+        let angle_out = Angle(x, y);
+        let angle_in = Angle(-x, -y);
+
+        let mut start = Pseudovert::Given {
+            i: e0.p.i,
+            j: e0.p.j,
+        };
+
+        while n_inter < inters.len() {
+            let (n0_inter, _, m, n, n1) = inters[n_inter];
+            if n0_inter != n0 {
                 break;
             }
-            succ[n1] = Some(if pos_cross(e0.v, edges[n4].v) { n5 } else { n6 });
-            n1 = n5;
-            nint += 1;
+
+            let end = Pseudovert::Steiner { m, n };
+            nodes.push((start, angle_out.clone(), true, n1));
+            nodes.push((end.clone(), angle_in.clone(), false, n1));
+
+            start = end;
+
+            n_inter += 1;
         }
-        succ[n1] = n2;
+
+        let end = Pseudovert::Given {
+            i: e0.q.i,
+            j: e0.q.j,
+        };
+        nodes.push((start, angle_out, true, n0));
+        nodes.push((end, angle_in, false, n0));
     }
+
+    nodes.sort_unstable();
+    let advance = |mut k: usize| {
+        let (p0, _, _, _) = &nodes[k];
+        if k == nodes.len() - 1 || {
+            let (p1, _, _, _) = &nodes[k + 1];
+            *p1 != *p0
+        } {
+            while k > 0 {
+                k -= 1;
+                let (p1, _, _, _) = &nodes[k];
+                if *p1 != *p0 {
+                    return k + 1;
+                }
+            }
+            0
+        } else {
+            k + 1
+        }
+    };
+
+    // we initialize this with invalid indices so that it will later panic if we haven't replaced
+    // all its contents, which we should always do
+    let mut indices = vec![nodes.len(); tips.len()];
+    for (k, &(_, _, leaving, n)) in nodes.iter().enumerate() {
+        if !leaving {
+            indices[n] = k;
+        }
+    }
+
     let mut loops = vec![];
-    let mut id = vec![None; verts.len()];
-    for n0 in 0..verts.len() {
+    let mut id = vec![None; tips.len()];
+    let mut stack = vec![];
+    for (n0, &k0) in indices.iter().enumerate() {
         if id[n0] != None {
             continue;
         }
-        let mut s = Some(n0);
-        while let Some(n1) = s {
-            if id[n1] != None {
+        stack.push((n0, k0));
+        id[n0] = Some(n0);
+        while let Some((n1, k)) = stack.last_mut() {
+            *k = advance(*k);
+            if *k == indices[*n1] {
+                stack.pop();
+                continue;
+            }
+            let (_, _, leaving, n2) = nodes[*k];
+            if !leaving {
+                continue;
+            }
+            stack.push((n2, indices[n2]));
+            if id[n2] != None {
                 break;
             }
-            id[n1] = Some(n0);
-            s = succ[n1];
+            id[n2] = Some(n0);
         }
-        if let Some(n1) = s {
-            if id[n1] == Some(n0) {
-                let mut loop_edges = vec![];
-                let mut n2 = n1;
-                loop {
-                    loop_edges.push(match verts[n2] {
-                        Pseudovert::Init(&Vert { z, .. }) => z,
-                        Pseudovert::Inter(_, _, z) => z,
-                    });
-                    n2 = succ[n2].unwrap();
-                    if n2 == n1 {
-                        break;
-                    }
-                }
-                loops.push(loop_edges);
+        if let Some(&(n1, _)) = stack.last() {
+            let start = stack.iter().position(|&(n, _)| n == n1).unwrap();
+            let end = stack.len() - 1;
+            if start < end {
+                loops.push(stack[start..end].iter().map(|&(n, _)| tips[n]).collect());
             }
+            stack.clear();
         }
     }
+
     loops
 }
