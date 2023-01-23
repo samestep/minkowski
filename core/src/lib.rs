@@ -103,7 +103,7 @@ fn intersection((a0, b0): Edge, (a1, b1): Edge) -> Option<(f64, f64, Point)> {
     let denom = cross(v0, v1);
     let t0 = cross(w, v1) / denom;
     let t1 = cross(w, v0) / denom;
-    if 0. < t0 && t0 < 1. && 0. < t1 && t1 < 1. {
+    if 0. <= t0 && t0 <= 1. && 0. <= t1 && t1 <= 1. {
         Some((t0, t1, add(a0, scale(t0, v0))))
     } else {
         None
