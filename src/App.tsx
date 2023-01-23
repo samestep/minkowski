@@ -32,20 +32,14 @@ const cross = ([x0, y0]: vec.Vector2, [x1, y1]: vec.Vector2) =>
   x0 * y1 - x1 * y0;
 
 const isClockwise = (polygon: vec.Vector2[]) => {
-  // https://stackoverflow.com/a/1180256
-  let i = 0;
-  for (let j = 1; j < polygon.length; ++j) {
-    if (
-      polygon[j][1] < polygon[i][1] ||
-      (polygon[j][1] === polygon[i][1] && polygon[j][0] > polygon[i][0])
-    ) {
-      i = j;
-    }
+  // https://stackoverflow.com/a/1165943
+  let sum = 0;
+  for (let i = 0; i < polygon.length; ++i) {
+    const [x0, y0] = polygon[i];
+    const [x1, y1] = polygon[(i + 1) % polygon.length];
+    sum += (x1 - x0) * (y1 + y0);
   }
-  const a = polygon[i];
-  const b = polygon[i > 0 ? i - 1 : polygon.length - 1];
-  const c = polygon[i + 1 < polygon.length ? i + 1 : 0];
-  return cross(vec.sub(b, a), vec.sub(c, a)) > 0;
+  return sum > 0;
 };
 
 const model = FlexLayout.Model.fromJson({
@@ -118,6 +112,7 @@ const App = () => {
         );
       }
       case "output": {
+        console.log(polygons);
         return (
           <Mafs width={width} height={height}>
             <CartesianCoordinates />
