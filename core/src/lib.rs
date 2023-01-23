@@ -96,20 +96,6 @@ fn pos_cross((x0, y0): Point, (x1, y1): Point) -> bool {
     x0 * y1 >= x1 * y0
 }
 
-fn intersection((a0, b0): Edge, (a1, b1): Edge) -> Option<(f64, f64, Point)> {
-    let v0 = sub(b0, a0);
-    let v1 = sub(b1, a1);
-    let w = sub(a1, a0);
-    let denom = cross(v0, v1);
-    let t0 = cross(w, v1) / denom;
-    let t1 = cross(w, v0) / denom;
-    if 0. <= t0 && t0 <= 1. && 0. <= t1 && t1 <= 1. {
-        Some((t0, t1, add(a0, scale(t0, v0))))
-    } else {
-        None
-    }
-}
-
 /// sum of one vertex from each polygon
 pub struct Vert {
     /// index of vertex from first polygon
@@ -222,11 +208,15 @@ pub fn extract_loops(edges: &[Conv]) -> Vec<Vec<Point>> {
                 || (j00 == j11 && (i00 == i11 || (j00, j10) == (j01, j11)))
                 || (i01, j01) == (i11, j11))
             {
-                if let Some((t0, t1, z)) = intersection((e0.p.z, e0.q.z), (e1.p.z, e1.q.z)) {
+                let v = sub(e1.p.z, e0.p.z);
+                let denom = cross(e0.v, e1.v);
+                let t0 = cross(v, e1.v) / denom;
+                let t1 = cross(v, e0.v) / denom;
+                if 0. <= t0 && t0 <= 1. && 0. <= t1 && t1 <= 1. {
                     inters.push((n0, t0, n0, n1, tips.len()));
-                    tips.push(z);
+                    tips.push(add(e0.p.z, scale(t0, e0.v)));
                     inters.push((n1, t1, n0, n1, tips.len()));
-                    tips.push(z);
+                    tips.push(add(e1.p.z, scale(t1, e1.v)));
                 }
             }
         }
