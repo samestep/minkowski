@@ -76,10 +76,6 @@ impl Eq for Angle {}
 pub type Point = (f64, f64);
 pub type Edge = (Point, Point);
 
-fn scale(t: f64, (x, y): Point) -> Point {
-    (t * x, t * y)
-}
-
 fn add((x0, y0): Point, (x1, y1): Point) -> Point {
     (x0 + x1, y0 + y1)
 }
@@ -213,10 +209,15 @@ pub fn extract_loops(edges: &[Conv]) -> Vec<Vec<Point>> {
                 let t0 = cross(v, e1.v) / denom;
                 let t1 = cross(v, e0.v) / denom;
                 if 0. <= t0 && t0 <= 1. && 0. <= t1 && t1 <= 1. {
+                    let w = (cross(e0.p.z, e0.q.z), cross(e1.p.z, e1.q.z));
+                    let z = (
+                        cross((e0.v.0, e1.v.0), w) / denom,
+                        cross((e0.v.1, e1.v.1), w) / denom,
+                    );
                     inters.push((n0, t0, n0, n1, tips.len()));
-                    tips.push(add(e0.p.z, scale(t0, e0.v)));
+                    tips.push(z);
                     inters.push((n1, t1, n0, n1, tips.len()));
-                    tips.push(add(e1.p.z, scale(t1, e1.v)));
+                    tips.push(z);
                 }
             }
         }
