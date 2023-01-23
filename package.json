@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "test": "prettier --check . && yarn wasm && tsc",
-    "wasm": "cargo build --target=wasm32-unknown-unknown --release && wasm-bindgen --target=web --out-dir=src/wasm target/wasm32-unknown-unknown/release/minkowski.wasm",
+    "wasm": "cargo build --package=minkowski-web --target=wasm32-unknown-unknown --release && wasm-bindgen --target=web --out-dir=src/wasm target/wasm32-unknown-unknown/release/minkowski_web.wasm",
     "build": "yarn wasm && vite build",
     "preview": "vite preview"
   },

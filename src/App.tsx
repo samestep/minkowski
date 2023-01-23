@@ -11,7 +11,8 @@ import {
 import React, { useEffect } from "react";
 import { useMediaQuery } from "react-responsive";
 import "./App.css";
-import init, { initialize, minkowski } from "./wasm/minkowski";
+import example from "./example.json";
+import init, { initialize, minkowski } from "./wasm/minkowski_web";
 
 await init();
 initialize();
@@ -83,21 +84,14 @@ const App = () => {
   const leftColor = { color: Theme.red };
   const rightColor = { color: Theme.violet };
 
-  const rightPoints = [
-    useMovablePoint([1.6, 0.3], rightColor),
-    useMovablePoint([0.4, 0.3], rightColor),
-    useMovablePoint([0, 1.4], rightColor),
-    useMovablePoint([-0.4, 0.3], rightColor),
-    useMovablePoint([-1.6, 0.3], rightColor),
-    useMovablePoint([-0.5, -0.2], rightColor),
-    useMovablePoint([-1, -1.2], rightColor),
-    useMovablePoint([0, -0.5], rightColor),
-    useMovablePoint([1, -1.2], rightColor),
-    useMovablePoint([0.5, -0.2], rightColor),
-  ];
+  const [leftInitial, rightInitial] = example as [vec.Vector2[], vec.Vector2[]];
 
-  const leftPoints = rightPoints.map((mp) =>
-    useMovablePoint(vec.rotate(mp.point, 0.1), leftColor)
+  const leftPoints = leftInitial.map((point) =>
+    useMovablePoint(point, leftColor)
+  );
+
+  const rightPoints = rightInitial.map((point) =>
+    useMovablePoint(point, rightColor)
   );
 
   const left = leftPoints.map((mp) => mp.point);

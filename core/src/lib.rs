@@ -1,10 +1,7 @@
 use std::cmp::Ordering;
 
-use serde::Serialize;
-use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
-
-type Point = (f64, f64);
-type Edge = (Point, Point);
+pub type Point = (f64, f64);
+pub type Edge = (Point, Point);
 
 fn scale(t: f64, (x, y): Point) -> Point {
     (t * x, t * y)
@@ -54,21 +51,21 @@ fn intersection((a0, b0): Edge, (a1, b1): Edge) -> Option<(f64, f64, Point)> {
 }
 
 /// sum of one vertex from each polygon
-struct Vert {
+pub struct Vert {
     /// index of vertex from first polygon
     i: usize,
     /// index of vertex from second polygon
     j: usize,
     /// coordinates
-    z: Point,
+    pub z: Point,
 }
 
 /// convolution of edge from one polygon with vertex from other polygon
-struct Conv {
+pub struct Conv {
     /// start
-    p: Vert,
+    pub p: Vert,
     /// end
-    q: Vert,
+    pub q: Vert,
     /// delta
     v: Point,
 }
@@ -129,7 +126,7 @@ fn convolve(
     walk_b(0);
 }
 
-fn reduced_convolution(a: &[Point], b: &[Point]) -> Vec<Conv> {
+pub fn reduced_convolution(a: &[Point], b: &[Point]) -> Vec<Conv> {
     let mut edges = vec![];
     convolve(a, b, &mut edges, |i, j, z| Vert { i, j, z });
     convolve(b, a, &mut edges, |i, j, z| Vert { i: j, j: i, z });
@@ -144,7 +141,7 @@ enum Pseudovert<'a> {
     Inter(&'a Conv, &'a Conv, Point),
 }
 
-fn extract_loops(edges: &[Conv]) -> Vec<Vec<Point>> {
+pub fn extract_loops(edges: &[Conv]) -> Vec<Vec<Point>> {
     let mut verts: Vec<Pseudovert> = edges.iter().map(|e| Pseudovert::Init(&e.p)).collect();
     let mut inters = vec![];
     let mut succ: Vec<Option<usize>> = edges
@@ -226,27 +223,4 @@ fn extract_loops(edges: &[Conv]) -> Vec<Vec<Point>> {
         }
     }
     loops
-}
-
-#[wasm_bindgen]
-pub fn initialize() {
-    std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-}
-
-#[derive(Serialize)]
-pub struct Minkowski {
-    pub edges: Vec<Edge>,
-    pub polygons: Vec<Vec<Point>>,
-}
-
-#[wasm_bindgen]
-pub fn minkowski(xs0: Vec<f64>, ys0: Vec<f64>, xs1: Vec<f64>, ys1: Vec<f64>) -> JsValue {
-    let a: Vec<Point> = xs0.into_iter().zip(ys0.into_iter()).collect();
-    let b: Vec<Point> = xs1.into_iter().zip(ys1.into_iter()).collect();
-    let convolved = reduced_convolution(&a, &b);
-    serde_wasm_bindgen::to_value(&Minkowski {
-        edges: convolved.iter().map(|e| (e.p.z, e.q.z)).collect(),
-        polygons: extract_loops(&convolved),
-    })
-    .unwrap()
 }
