@@ -112,7 +112,6 @@ const App = () => {
         );
       }
       case "output": {
-        console.log(polygons);
         return (
           <Mafs width={width} height={height}>
             <CartesianCoordinates />
