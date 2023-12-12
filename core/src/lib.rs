@@ -47,7 +47,7 @@ impl Ord for Angle {
     fn cmp(&self, other: &Self) -> Ordering {
         let region = self.region();
         region.cmp(&other.region()).then_with(|| {
-            if region == None {
+            if region.is_none() {
                 Ordering::Equal
             } else {
                 let &Angle(x0, y0) = self;
@@ -295,7 +295,7 @@ pub fn extract_loops(edges: &[Conv]) -> Vec<Vec<Point>> {
     let mut id = vec![None; tips.len()];
     let mut stack = vec![];
     for (n0, &k0) in indices.iter().enumerate() {
-        if id[n0] != None {
+        if id[n0].is_some() {
             continue;
         }
         stack.push((n0, k0));
@@ -311,7 +311,7 @@ pub fn extract_loops(edges: &[Conv]) -> Vec<Vec<Point>> {
                 continue;
             }
             stack.push((n2, indices[n2]));
-            if id[n2] != None {
+            if id[n2].is_some() {
                 break;
             }
             id[n2] = Some(n0);
