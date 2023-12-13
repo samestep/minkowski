@@ -1,6 +1,6 @@
 import * as FlexLayout from "flexlayout-react";
 import {
-  CartesianCoordinates,
+  Coordinates,
   Line,
   Mafs,
   Polygon,
@@ -98,8 +98,8 @@ const App = () => {
     switch (node.getComponent()) {
       case "input": {
         return (
-          <Mafs width={width} height={height}>
-            <CartesianCoordinates />
+          <Mafs width={width} height={height} zoom={true}>
+            <Coordinates.Cartesian />
             <Polygon points={left} {...leftColor} />
             <Polygon points={right} {...rightColor} />
             {leftPoints.map((mp, i) => (
@@ -113,8 +113,8 @@ const App = () => {
       }
       case "output": {
         return (
-          <Mafs width={width} height={height}>
-            <CartesianCoordinates />
+          <Mafs width={width} height={height} zoom={true}>
+            <Coordinates.Cartesian />
             {edges.map(([point1, point2], i) => (
               <Line.Segment key={i} point1={point1} point2={point2} />
             ))}

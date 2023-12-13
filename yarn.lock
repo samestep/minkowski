@@ -411,10 +411,10 @@ loose-envify@^1.1.0, loose-envify@^1.4.0:
   dependencies:
     js-tokens "^3.0.0 || ^4.0.0"
 
-mafs@^0.13.1:
-  version "0.13.1"
-  resolved "https://registry.yarnpkg.com/mafs/-/mafs-0.13.1.tgz#2a9b46ca3a6663a34eb6e63b66c0ba1d5f6198ec"
-  integrity sha512-fWpVGsDzJEBK6MjWG6eBWFvBxLzQvAbC2NuxTiAvfNBtOm+kHvcl9I6X+kXQmn4RWoJEPxG1IhWGAP1Ylm+QYw==
+mafs@^0.15.1:
+  version "0.15.2"
+  resolved "https://registry.yarnpkg.com/mafs/-/mafs-0.15.2.tgz#2ed9996b5ca03cadfd8ddf578103ddf7eb1f4b45"
+  integrity sha512-NPLfponLPlfez2uk7O38lRQLSRmtvctF2WpsGs1UU4VxoZY5frRHW06qk5L1nx/5Q2H9T62X4G0qNE7FBEVSBg==
   dependencies:
     "@react-hook/resize-observer" "^1.2.6"
     "@swc/helpers" "^0.4.14"
