@@ -1,3 +1,6 @@
-# minkowski
+# Minkowski [![crates.io][badge]][crate]
 
-Visualization of Minkowski penalties.
+2D Minkowski sums of polygons.
+
+[badge]: https://img.shields.io/crates/v/minkowski
+[crate]: https://crates.io/crates/minkowski
