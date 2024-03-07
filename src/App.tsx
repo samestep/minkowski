@@ -3,6 +3,7 @@ import {
   Coordinates,
   Line,
   Mafs,
+  Point,
   Polygon,
   Theme,
   useMovablePoint,
@@ -125,6 +126,17 @@ const App = () => {
                 color={isClockwise(polygon) ? Theme.indigo : Theme.blue}
               />
             ))}
+            {polygons.flatMap((polygon, i) => {
+              const color = isClockwise(polygon) ? Theme.indigo : Theme.blue;
+              return polygon.map(([x, y], j) => (
+                <Point
+                  key={polygons.length * i + j}
+                  x={x}
+                  y={y}
+                  color={color}
+                />
+              ));
+            })}
           </Mafs>
         );
       }
