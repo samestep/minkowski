@@ -1,6 +1,6 @@
 [package]
 name = "minkowski"
-version = "0.1.0"
+version = "0.2.0"
 license = "MIT"
 description = "2D Minkowski sums of polygons."
 repository = "https://github.com/samestep/minkowski"

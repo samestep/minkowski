@@ -176,22 +176,22 @@ pub fn reduced_convolution(a: &[Point], b: &[Point]) -> Vec<Conv> {
 }
 
 /// post-intersection
-#[derive(Clone, Eq, Ord, PartialEq, PartialOrd)]
-enum Pseudovert {
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub enum Pseudovert {
     /// sum of one vertex from each polygon
     Given { i: usize, j: usize },
     /// intersection of two indexed edges
     Steiner { m: usize, n: usize },
 }
 
-pub fn extract_loops(edges: &[Conv]) -> Vec<Vec<Point>> {
+pub fn extract_loops(edges: &[Conv]) -> Vec<Vec<(Point, Pseudovert)>> {
     let mut tips: Vec<Point> = edges.iter().map(|e| e.q.z).collect();
     let mut inters = vec![];
     for (n0, e0) in edges.iter().enumerate() {
         let Vert { i: i00, j: j00, .. } = e0.p;
         let Vert { i: i01, j: j01, .. } = e0.q;
 
-        for n1 in n0 + 1..edges.len() {
+        for n1 in (n0 + 1)..edges.len() {
             let e1 = &edges[n1];
             let Vert { i: i10, j: j10, .. } = e1.p;
             let Vert { i: i11, j: j11, .. } = e1.q;
@@ -320,7 +320,12 @@ pub fn extract_loops(edges: &[Conv]) -> Vec<Vec<Point>> {
             let start = stack.iter().position(|&(n, _)| n == n1).unwrap();
             let end = stack.len() - 1;
             if start < end {
-                loops.push(stack[start..end].iter().map(|&(n, _)| tips[n]).collect());
+                loops.push(
+                    stack[start..end]
+                        .iter()
+                        .map(|&(n, _)| (tips[n], nodes[indices[n]].0.clone()))
+                        .collect(),
+                );
             }
             stack.clear();
         }
