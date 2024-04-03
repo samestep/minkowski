@@ -2,7 +2,7 @@ import { javascript } from "@codemirror/lang-javascript";
 import interact from "@replit/codemirror-interact";
 import CodeMirror from "@uiw/react-codemirror";
 import * as FlexLayout from "flexlayout-react";
-import { Coordinates, Line, Mafs, Point, Polygon, Theme, vec } from "mafs";
+import { Coordinates, Line, Mafs, Polygon, Theme, vec } from "mafs";
 import { useEffect, useState } from "react";
 import { useMediaQuery } from "react-responsive";
 import "./App.css";
@@ -162,12 +162,6 @@ const App = () => {
             <Coordinates.Cartesian />
             <Polygon points={left} {...leftColor} />
             <Polygon points={right} {...rightColor} />
-            {left.map(([x, y], i) => (
-              <Point key={i} x={x} y={y} {...leftColor} />
-            ))}
-            {right.map(([x, y], i) => (
-              <Point key={i} x={x} y={y} {...rightColor} />
-            ))}
           </Mafs>
         );
       }
@@ -185,17 +179,6 @@ const App = () => {
                 color={isClockwise(polygon) ? Theme.indigo : Theme.blue}
               />
             ))}
-            {polygons.flatMap((polygon, i) => {
-              const color = isClockwise(polygon) ? Theme.indigo : Theme.blue;
-              return polygon.map(([x, y], j) => (
-                <Point
-                  key={polygons.length * i + j}
-                  x={x}
-                  y={y}
-                  color={color}
-                />
-              ));
-            })}
           </Mafs>
         );
       }
