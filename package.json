@@ -11,8 +11,11 @@
     "react-responsive": "9"
   },
   "devDependencies": {
+    "@codemirror/lang-javascript": "^6",
+    "@replit/codemirror-interact": "^6",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@uiw/react-codemirror": "^4",
     "@vitejs/plugin-react-swc": "^3",
     "prettier": "^2",
     "prettier-plugin-organize-imports": "^3",

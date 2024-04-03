@@ -1,18 +1,12 @@
+import { javascript } from "@codemirror/lang-javascript";
+import interact from "@replit/codemirror-interact";
+import CodeMirror from "@uiw/react-codemirror";
 import * as FlexLayout from "flexlayout-react";
-import {
-  Coordinates,
-  Line,
-  Mafs,
-  Point,
-  Polygon,
-  Theme,
-  useMovablePoint,
-  vec,
-} from "mafs";
-import React, { useEffect } from "react";
+import { Coordinates, Line, Mafs, Point, Polygon, Theme, vec } from "mafs";
+import { useEffect, useState } from "react";
 import { useMediaQuery } from "react-responsive";
 import "./App.css";
-import example from "./example.json";
+import example from "./example.js?raw";
 import init, { initialize, minkowski } from "./wasm/minkowski_web";
 
 await init();
@@ -28,9 +22,6 @@ const minkowskiSum = (
     new Float64Array(b.map(([x]) => x)),
     new Float64Array(b.map(([, y]) => y))
   );
-
-const cross = ([x0, y0]: vec.Vector2, [x1, y1]: vec.Vector2) =>
-  x0 * y1 - x1 * y0;
 
 const isClockwise = (polygon: vec.Vector2[]) => {
   // https://stackoverflow.com/a/1165943
@@ -53,6 +44,10 @@ const model = FlexLayout.Model.fromJson({
   layout: {
     type: "row",
     children: [
+      {
+        type: "tabset",
+        children: [{ type: "tab", name: "code", component: "code" }],
+      },
       {
         type: "tabset",
         children: [{ type: "tab", name: "input", component: "input" }],
@@ -79,35 +74,74 @@ const App = () => {
   const leftColor = { color: Theme.red };
   const rightColor = { color: Theme.violet };
 
-  const [leftInitial, rightInitial] = example as [vec.Vector2[], vec.Vector2[]];
+  const [code, setCode] = useState(example);
 
-  const leftPoints = leftInitial.map((point) =>
-    useMovablePoint(point, leftColor)
-  );
-
-  const rightPoints = rightInitial.map((point) =>
-    useMovablePoint(point, rightColor)
-  );
-
-  const left = leftPoints.map((mp) => mp.point);
-  const right = rightPoints.map((mp) => mp.point);
+  const [left, right] = new Function(code)() as [vec.Vector2[], vec.Vector2[]];
 
   const { edges, polygons } = minkowskiSum(left, right);
 
   const factory = (node: FlexLayout.TabNode) => {
     const { width, height } = node.getRect();
     switch (node.getComponent()) {
+      case "code": {
+        return (
+          <CodeMirror
+            width={`${width}px`}
+            height={`${height}px`}
+            theme="dark"
+            extensions={[
+              javascript(),
+              interact({
+                // https://github.com/replit/codemirror-interact/blob/a0aef2b37e628bc196992b69529afad530d40116/dev/index.ts
+                rules: [
+                  {
+                    regexp: /-?\b\d+\.?\d*\b/g,
+                    cursor: "ew-resize",
+                    onDrag: (text, setText, e) => {
+                      // TODO: size aware
+                      // TODO: small interval with shift key?
+                      const newVal = Number(text) + e.movementX;
+                      if (isNaN(newVal)) return;
+                      setText(newVal.toString());
+                    },
+                  },
+                  // kaboom vec2 slider
+                  {
+                    regexp: /vec2\(-?\b\d+\.?\d*\b\s*(,\s*-?\b\d+\.?\d*\b)?\)/g,
+                    cursor: "move",
+                    onDrag: (text, setText, e) => {
+                      const res =
+                        /vec2\((?<x>-?\b\d+\.?\d*\b)\s*(,\s*(?<y>-?\b\d+\.?\d*\b))?\)/.exec(
+                          text
+                        );
+                      let x = Number(res?.groups?.x);
+                      let y = Number(res?.groups?.y);
+                      if (isNaN(x)) return;
+                      if (isNaN(y)) y = x;
+                      setText(`vec2(${x + e.movementX}, ${y - e.movementY})`);
+                    },
+                  },
+                ],
+              }),
+            ]}
+            onChange={(value) => {
+              setCode(value);
+            }}
+            value={example}
+          />
+        );
+      }
       case "input": {
         return (
           <Mafs width={width} height={height} zoom={true}>
             <Coordinates.Cartesian />
             <Polygon points={left} {...leftColor} />
             <Polygon points={right} {...rightColor} />
-            {leftPoints.map((mp, i) => (
-              <React.Fragment key={i}>{mp.element}</React.Fragment>
+            {left.map(([x, y], i) => (
+              <Point key={i} x={x} y={y} {...leftColor} />
             ))}
-            {rightPoints.map((mp, i) => (
-              <React.Fragment key={i}>{mp.element}</React.Fragment>
+            {right.map(([x, y], i) => (
+              <Point key={i} x={x} y={y} {...rightColor} />
             ))}
           </Mafs>
         );
