@@ -1,3 +1,4 @@
+/.cargo/
 /dist/
 /src/wasm/
 /target/
