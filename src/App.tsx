@@ -12,16 +12,41 @@ import init, { initialize, minkowski } from "./wasm/minkowski_web";
 await init();
 initialize();
 
-const minkowskiSum = (
-  a: vec.Vector2[],
-  b: vec.Vector2[]
-): { edges: [vec.Vector2, vec.Vector2][]; polygons: vec.Vector2[][] } =>
+interface MinkowskiOutput {
+  edges: [vec.Vector2, vec.Vector2][];
+  polygons: vec.Vector2[][];
+}
+
+const minkowskiSum = (a: vec.Vector2[], b: vec.Vector2[]): MinkowskiOutput =>
   minkowski(
     new Float64Array(a.map(([x]) => x)),
     new Float64Array(a.map(([, y]) => y)),
     new Float64Array(b.map(([x]) => x)),
     new Float64Array(b.map(([, y]) => y))
   );
+
+interface CalculateOutput extends MinkowskiOutput {
+  left: vec.Vector2[];
+  right: vec.Vector2[];
+}
+
+const calculate = (code: string): CalculateOutput => {
+  let left: vec.Vector2[] = [];
+  let right: vec.Vector2[] = [];
+  try {
+    [left, right] = new Function(code)() as [vec.Vector2[], vec.Vector2[]];
+  } catch (e) {
+    console.error(e);
+  }
+  let edges: [vec.Vector2, vec.Vector2][] = [];
+  let polygons: vec.Vector2[][] = [];
+  try {
+    ({ edges, polygons } = minkowskiSum(left, right));
+  } catch (e) {
+    console.error(e);
+  }
+  return { left, right, edges, polygons };
+};
 
 const isClockwise = (polygon: vec.Vector2[]) => {
   // https://stackoverflow.com/a/1165943
@@ -76,9 +101,7 @@ const App = () => {
 
   const [code, setCode] = useState(example);
 
-  const [left, right] = new Function(code)() as [vec.Vector2[], vec.Vector2[]];
-
-  const { edges, polygons } = minkowskiSum(left, right);
+  const { left, right, edges, polygons } = calculate(code);
 
   const factory = (node: FlexLayout.TabNode) => {
     const { width, height } = node.getRect();
