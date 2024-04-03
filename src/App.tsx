@@ -34,7 +34,9 @@ const calculate = (code: string): CalculateOutput => {
   let left: vec.Vector2[] = [];
   let right: vec.Vector2[] = [];
   try {
-    [left, right] = new Function(code)() as [vec.Vector2[], vec.Vector2[]];
+    const [l, r] = new Function(code)() as [vec.Vector2[], vec.Vector2[]];
+    left = l.map(([x, y]) => [Number(x), Number(y)]);
+    right = r.map(([x, y]) => [Number(x), Number(y)]);
   } catch (e) {
     console.error(e);
   }
