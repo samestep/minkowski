@@ -6,5 +6,5 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1"
-minkowski = { path = "../core" }
+minkowski = { path = "../minkowski" }
 serde_json = "1"

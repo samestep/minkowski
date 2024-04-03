@@ -9,7 +9,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 console_error_panic_hook = "0.1"
-minkowski = { path = "../core" }
+minkowski = { path = "../minkowski" }
 serde = { version = "1", features = ["derive"] }
 serde-wasm-bindgen = "0.4"
 wasm-bindgen = "=0.2.84"

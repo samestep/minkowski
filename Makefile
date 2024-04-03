@@ -16,7 +16,7 @@ dev: src/wasm node_modules
 
 wasm := target/wasm32-unknown-unknown/release/minkowski_web.wasm
 
-$(wasm): core/Cargo.toml $(wildcard core/src/*) web/Cargo.toml $(wildcard web/src/*)
+$(wasm): crates/minkowski/Cargo.toml $(wildcard crates/minkowski/src/*) crates/minkowski-web/Cargo.toml $(wildcard crates/minkowski-web/src/*)
 	cargo build --package=minkowski-web --target=wasm32-unknown-unknown --release
 
 src/wasm: .cargo $(wasm)
