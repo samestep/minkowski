@@ -95,9 +95,9 @@ fn pos_cross((x0, y0): Point, (x1, y1): Point) -> bool {
 /// sum of one vertex from each polygon
 pub struct Vert {
     /// index of vertex from first polygon
-    i: usize,
+    pub i: usize,
     /// index of vertex from second polygon
-    j: usize,
+    pub j: usize,
     /// coordinates
     pub z: Point,
 }
